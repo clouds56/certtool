@@ -1,26 +1,26 @@
 #!/usr/bin/sh
 EXPIRE=400
 SUBJ=C=US/ST=CA/O=Clouds, Person./OU=Clouds K620c
-CA=ca.self
-CA_CN=Clouds CA
 EXTFILE=ext.cnf
 SERIAL=-CAcreateserial
 
 .PRECIOUS: %.key %.csr %.crt %.pem
-.PHONY: phony_target
+.PHONY: self intermediate target clean show
 
-# make ca.self
-# make zz.intermediate CA=ca.self
-# make clouds.target CA=zz.intermediate
+# make self CN=clouds+ca
+# make intermediate CN=zz CA=clouds+ca.self
+# make target CN=clouds CA=zz.intermediate
 
 %.key:
 	openssl genrsa -aes256 -out $@ 4096 && chmod og-rwx $@
+	chmod og-rwx $@
 
 %.csr: %.key
-	openssl req -new -sha256 -key $< -subj "/CN=$*/${SUBJ}/" -out $@
+	openssl req -new -sha256 -key $< -subj "/CN=$(subst +, ,${CN})/${SUBJ}/" -out $@
+	chmod og-rwx $@
 
 %.self.crt: %.self.key
-	openssl req -new -x509 -sha256 -days ${EXPIRE} -extensions v3_ca -subj "/CN=${CA_CN}/${SUBJ}/" -key $< -out $@
+	openssl req -new -x509 -sha256 -days ${EXPIRE} -extensions v3_ca -subj "/CN=$(subst +, ,${CN})/${SUBJ}/" -key $< -out $@
 	chmod o-rwx $@
 
 %.intermediate.crt: %.intermediate.csr
@@ -31,19 +31,19 @@ SERIAL=-CAcreateserial
 	openssl x509 -req -days ${EXPIRE} -extfile ${EXTFILE} -extensions v3_req -CA ${CA}.crt -CAkey ${CA}.key ${SERIAL} -in $*.target.csr -out $@
 	chmod o-rwx $@
 
-%.self: phony_target %.self.crt
-	cat $@.crt > $@.pem
+self: ${CN}.self.crt
+	cat $< > $(patsubst %.crt,%.pem,$<)
 
-%.intermediate: phony_target %.intermediate.crt
-	cat $@.crt ${CA}.pem > $@.pem
+intermediate: ${CN}.intermediate.crt
+	cat $< ${CA}.pem > $(patsubst %.crt,%.pem,$<)
 
-%.target: phony_target %.target.crt
-	cat $@.crt ${CA}.pem > $@.pem
+target: ${CN}.target.crt
+	cat $< ${CA}.pem > $(patsubst %.crt,%.pem,$<)
 
-%.clean: phony_target
-	rm -rf $*.*
+clean:
+	rm -rf ${CN}.*
 
-%.show: phony_target
-	openssl x509 -noout -text -in $*.crt
+show: phony_target
+	openssl x509 -noout -text -in ${CN}.crt
 
 phony_target:
