@@ -1,11 +1,11 @@
 #!/usr/bin/sh
 EXPIRE=400
 SUBJ=C=US/ST=CA/O=Clouds, Person./OU=Clouds K620c
-EXTFILE=ext.cnf
 SERIAL=-CAcreateserial
+EXTFILE=-extfile ext.cnf
 
 .PRECIOUS: %.key %.csr %.crt %.pem
-.PHONY: self intermediate target clean show
+.PHONY: self intermediate target clean show show-csr
 
 # make self CN=clouds+ca
 # make intermediate CN=zz CA=clouds+ca.self
@@ -24,11 +24,11 @@ SERIAL=-CAcreateserial
 	chmod o-rwx $@
 
 %.intermediate.crt: %.intermediate.csr
-	openssl x509 -req -days ${EXPIRE} -extfile ${EXTFILE} -extensions v3_ca -CA ${CA}.crt -CAkey ${CA}.key ${SERIAL} -in $*.intermediate.csr -out $@
+	openssl x509 -req -days ${EXPIRE} ${EXTFILE} -extensions v3_ca -CA ${CA}.crt -CAkey ${CA}.key ${SERIAL} -in $*.intermediate.csr -out $@
 	chmod o-rwx $@
 
 %.target.crt: %.target.csr
-	openssl x509 -req -days ${EXPIRE} -extfile ${EXTFILE} -extensions v3_req -CA ${CA}.crt -CAkey ${CA}.key ${SERIAL} -in $*.target.csr -out $@
+	openssl x509 -req -days ${EXPIRE} ${EXTFILE} -extensions v3_req -CA ${CA}.crt -CAkey ${CA}.key ${SERIAL} -in $*.target.csr -out $@
 	chmod o-rwx $@
 
 self: ${CN}.self.crt
@@ -43,7 +43,8 @@ target: ${CN}.target.crt
 clean:
 	rm -rf ${CN}.*
 
-show: phony_target
+show:
 	openssl x509 -noout -text -in ${CN}.crt
 
-phony_target:
+show-csr:
+	openssl req -noout -text -in ${CN}.csr
